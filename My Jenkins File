@@ -1,0 +1,32 @@
+node{
+    
+    stage('Clone Repo'){
+        git credentialsId: 'c714fc11-4369-40ef-aeda-eb90673fd053', url: 'https://github.com/Pa1vendra/maven-web-app.git'    
+    }
+    
+    stage('Maven Build'){
+        def mavenHome = tool name: "Maven-3.8.6", type: "maven"
+        def mavenCMD = "${mavenHome}/bin/mvn"
+        sh "${mavenCMD} clean package"
+    }
+    
+    stage('Code Review'){
+        withSonarQubeEnv('Sonar-Server'){
+            def mavenHome = tool name: "Maven-3.8.6", type: "maven"
+            def mavenCMD = "${mavenHome}/bin/mvn"
+            sh "${mavenCMD} clean package"
+            sh "${mavenCMD} sonar:sonar"
+            
+        }
+    }
+    
+    stage('Upload Build Artifact'){
+        nexusArtifactUploader artifacts: [[artifactId: '01-maven-web-app', classifier: '', file: 'target/01-maven-web-app.war', type: 'war']], credentialsId: 'Nexus-Credentails', groupId: 'in.test-pipeline', nexusUrl: '13.214.178.90:8081', nexusVersion: 'nexus3', protocol: 'http', repository: 'test-snapshot-repository', version: '1.0-SNAPSHOT'
+    }
+    stage('Deploy'){
+        sshagent(['Tomcat-Server-Agent']) {
+        sh 'scp -o StrictHostKeyChecking=no target/01-maven-web-app.war ec2-user@18.141.174.74:/opt/apache-tomcat-9.0.76/webapps/'
+        }
+    }
+    
+}
